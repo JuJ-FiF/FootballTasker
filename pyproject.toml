@@ -1,0 +1,32 @@
+[project]
+name = "footballtasker"
+version = "1.0.0"
+description = "Aufgaben- und Anwesenheitsverwaltung für Football-Teams"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "flet==1.0.3",
+    "requests>=2.31,<3",
+    "beautifulsoup4>=4.12,<5",
+    "cryptography>=42,<47",
+    "matplotlib>=3.8,<4",
+    "pillow>=10,<13",
+    "pyjnius==1.6.1",
+]
+
+[tool.flet]
+org = "de.footballtasker"
+product = "FootballTasker-Neu"
+company = "FootballTasker"
+copyright = "Copyright © 2026"
+permissions = ["internet"]
+
+[tool.flet.app]
+exclude = ["secret.key", "credentials.bin", "logs", "BACKUP"]
+
+[tool.flet.android.permissions]
+"android.permission.INTERNET" = true
+"android.permission.REQUEST_INSTALL_PACKAGES" = true
+
+[tool.flet.template]
+url = "C:/FLET/FletTemplates/NoAndroidNavBar/build"
+
