@@ -16,6 +16,9 @@ def distribute_tasks(players: list[Player], tasks: list[Task]) -> dict[str, list
         for task in ordered:
             while available and len(assigned[task.name]) < getattr(task, limit):
                 assigned[task.name].append(available.pop())
-    return assigned
+    return {
+        task.name: sorted(assigned[task.name], key=str.casefold)
+        for task in sorted(ordered, key=lambda item: item.name.casefold())
+    }
 
 

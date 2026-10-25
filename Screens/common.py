@@ -47,7 +47,7 @@ def entity_list(app, title, description, items, editor, icon, empty_text, descri
         )
     else:
         rows = []
-        for item in items:
+        for item in sorted(items, key=lambda entry: entry.name.casefold()):
             rows.append(
                 ft.Card(
                     variant=ft.CardVariant.FILLED,

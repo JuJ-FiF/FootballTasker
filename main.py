@@ -216,12 +216,37 @@ class FootballTasksApp:
             actions=[],
         )
         actions = [
-            ft.TextButton("Abbrechen", on_click=lambda _: self.close_dialog()),
-            ft.FilledButton("Speichern", on_click=lambda _: on_save(dialog)),
+            ft.IconButton(
+                icon=ft.Icons.CLOSE,
+                icon_color=ft.Colors.WHITE,
+                style=ft.ButtonStyle(bgcolor=ft.Colors.BLUE_GREY_700),
+                tooltip="Abbrechen",
+                on_click=lambda _: self.close_dialog(),
+            ),
+            ft.IconButton(
+                icon=ft.Icons.CHECK_CIRCLE_OUTLINE,
+                icon_color=ft.Colors.WHITE,
+                style=ft.ButtonStyle(bgcolor=ft.Colors.GREEN_700),
+                tooltip="Speichern",
+                on_click=lambda _: on_save(dialog),
+            ),
         ]
         if on_delete:
-            actions.insert(0, ft.TextButton("Löschen", on_click=lambda _: on_delete(dialog)))
-        dialog.actions = actions
+            actions.insert(0, ft.IconButton(
+                icon=ft.Icons.DELETE_OUTLINE,
+                icon_color=ft.Colors.WHITE,
+                style=ft.ButtonStyle(bgcolor=ft.Colors.RED_700),
+                tooltip="Löschen",
+                on_click=lambda _: on_delete(dialog),
+            ))
+        dialog.actions = [
+            ft.Row(
+                actions,
+                alignment=ft.MainAxisAlignment.END,
+                spacing=8,
+                wrap=False,
+            )
+        ] if on_delete else actions
         self.page.show_dialog(dialog)
 
     def close_dialog(self):
@@ -234,7 +259,7 @@ class FootballTasksApp:
             keyboard_type=ft.KeyboardType.NUMBER,
         )
         plus = ft.TextField(label="SpielerPlus-Name", value=player.player_plus_name if player else "")
-        gets_task = ft.Checkbox(label="Bei Aufgabenverteilungen berücksichtigen", value=player.gets_task if player else True)
+        gets_task = ft.Checkbox(label="Für Aufgaben einteilen", value=player.gets_task if player else True)
 
         def save(dialog):
             cleaned = name.value.strip()
@@ -303,7 +328,10 @@ class FootballTasksApp:
     def preset_editor(self, preset: Preset | None = None):
         name = ft.TextField(label="Presetname", value=preset.name if preset else "", autofocus=True)
         selected_names = {task.name for task in preset.tasks} if preset else set()
-        checks = [ft.Checkbox(label=task.name, value=task.name in selected_names, data=task) for task in self.tasks]
+        checks = [
+            ft.Checkbox(label=task.name, value=task.name in selected_names, data=task)
+            for task in sorted(self.tasks, key=lambda item: item.name.casefold())
+        ]
         task_list = ft.Column(checks or [ft.Text("Lege zuerst Aufgaben an.", color=ft.Colors.ON_SURFACE_VARIANT)], spacing=4, height=260, scroll=ft.ScrollMode.AUTO)
 
         def save(dialog):
@@ -367,7 +395,7 @@ class FootballTasksApp:
             return
         self.choose_dialog(
             "Preset auswählen",
-            [(preset.name, preset) for preset in self.presets],
+            [(preset.name, preset) for preset in sorted(self.presets, key=lambda item: item.name.casefold())],
             lambda preset: self.export_details_dialog(players, preset),
         )
 

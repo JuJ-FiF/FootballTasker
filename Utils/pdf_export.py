@@ -16,7 +16,7 @@ def create_pdf(assignment: dict[str, list[str]], players: list[Player], opponent
     task_image = _table_image(assignment, opponent, plt)
     checklist_players = sorted(
         (player for player in players if player.number is not None),
-        key=lambda player: player.number,
+        key=lambda player: player.name.casefold(),
     )
     checklist_image = _checklist_image(checklist_players, plt)
 
