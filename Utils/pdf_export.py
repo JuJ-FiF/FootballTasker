@@ -30,8 +30,8 @@ def create_pdf(assignment: dict[str, list[str]], players: list[Player], opponent
     return output.getvalue()
 
 
-def save_pdf_to_downloads(pdf_bytes: bytes, filename: str) -> str | None:
-    """Speichert unter Android 10+ ohne Dateisystemberechtigung in Downloads."""
+def save_pdf_to_documents(pdf_bytes: bytes, filename: str) -> str | None:
+    """Speichert unter Android 10+ ohne Dateisystemberechtigung in Dokumente."""
     from jnius import autoclass, jarray, cast
 
     BuildVersion = autoclass("android.os.Build$VERSION")
@@ -43,17 +43,17 @@ def save_pdf_to_downloads(pdf_bytes: bytes, filename: str) -> str | None:
     if activity is None:
         raise RuntimeError("Die Android Activity ist nicht verfügbar.")
 
-    MediaStoreDownloads = autoclass("android.provider.MediaStore$Downloads")
+    MediaStoreFiles = autoclass("android.provider.MediaStore$Files")
     ContentValues = autoclass("android.content.ContentValues")
     resolver = activity.getContentResolver()
     values = ContentValues()
     values.put("_display_name", filename)
     values.put("mime_type", "application/pdf")
-    values.put("relative_path", "Download/FootballTasker")
+    values.put("relative_path", "Documents")
     values.put("is_pending", 1)
-    uri = resolver.insert(MediaStoreDownloads.EXTERNAL_CONTENT_URI, values)
+    uri = resolver.insert(MediaStoreFiles.getContentUri("external"), values)
     if uri is None:
-        raise RuntimeError("Android konnte keinen Eintrag im Download-Ordner anlegen.")
+        raise RuntimeError("Android konnte keinen Eintrag im Dokumente-Ordner anlegen.")
 
     try:
         stream = resolver.openOutputStream(uri)

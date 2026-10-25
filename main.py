@@ -20,8 +20,8 @@ from Screens.settings import SettingsScreen
 from Screens.tasks import TasksScreen
 from Models.models import Player, Preset, Task
 from Utils.data_store import DataStore
-from Utils.pdf_export import create_pdf, save_pdf_to_downloads
-from Utils.playerplus import fetch_presence, test_playerplus_login
+from Utils.pdf_export import create_pdf, save_pdf_to_documents
+from Utils.playerplus import fetch_presence_with_opponent, test_playerplus_login
 from Utils.task_distribution import distribute_tasks
 from Utils.updater import is_android_runtime
 
@@ -39,6 +39,8 @@ class FootballTasksApp:
         self.presets: list[Preset] = []
         self.groups: list[dict] = []
         self.presence: set[str] = set()
+        self.presence_opponent: str | None = None
+        self.presence_home_away: str | None = None
         self.presence_loaded = False
         self.presence_attempted = False
         self.manual_presence_selection: set[str] | None = None
@@ -370,8 +372,18 @@ class FootballTasksApp:
         )
 
     def export_details_dialog(self, players: list[Player], preset: Preset):
-        opponent = ft.TextField(label="Gegnername", autofocus=True)
-        filename = ft.TextField(label="Dateiname", value=f"Aufgabenverteilung_{datetime.now():%Y%m%d}")
+        suggested_opponent = self.presence_opponent or ""
+        now = datetime.now()
+        season_start = now.year if now.month >= 7 else now.year - 1
+        season = f"{season_start % 100:02d}_{(season_start + 1) % 100:02d}"
+        venue_suffix = f"-{self.presence_home_away}" if self.presence_home_away else ""
+        filename_default = f"{venue_suffix}_{season}"
+        opponent = ft.TextField(
+            label="Gegnername",
+            value=suggested_opponent,
+            autofocus=not bool(suggested_opponent),
+        )
+        filename = ft.TextField(label="Dateiname", value=filename_default)
 
         def create(dialog):
             title = opponent.value.strip()
@@ -392,15 +404,17 @@ class FootballTasksApp:
                 try:
                     if is_android_runtime():
                         try:
-                            uri = save_pdf_to_downloads(pdf_bytes, f"{name}.pdf")
+                            uri = save_pdf_to_documents(pdf_bytes, f"{name}.pdf")
                             if uri:
-                                self.message("PDF in Downloads/FootballTasker gespeichert.")
+                                self.message("PDF im Ordner Dokumente gespeichert.")
                                 return
                         except Exception as error:
-                            self.log(f"Android-Download fehlgeschlagen; Dateiauswahl wird verwendet: {error}")
+                            self.log(f"Android-Speichern in Dokumente fehlgeschlagen; Dateiauswahl wird verwendet: {error}")
+                    documents = Path.home() / "Documents"
                     path = await self.file_picker.save_file(
                         dialog_title="PDF speichern",
                         file_name=f"{name}.pdf",
+                        initial_directory=str(documents) if documents.is_dir() else None,
                         file_type=ft.FilePickerFileType.CUSTOM,
                         allowed_extensions=["pdf"],
                         src_bytes=pdf_bytes,
@@ -437,6 +451,8 @@ class FootballTasksApp:
                     self.presence_loaded = False
                     self.presence_attempted = False
                     self.manual_presence_selection = None
+                    self.presence_opponent = None
+                    self.presence_home_away = None
                     self.presence_status = "Login erfolgreich. Zugangsdaten gespeichert; Anwesenheit kann jetzt geladen werden."
                     self.presence_status_error = False
                     self.close_dialog()
@@ -469,6 +485,8 @@ class FootballTasksApp:
         self.presence_attempted = True
         self.presence_loaded = False
         self.manual_presence_selection = set()
+        self.presence_opponent = None
+        self.presence_home_away = None
         if not credentials:
             self.presence_status = "Keine SpielerPlus-Zugangsdaten eingerichtet. Bitte in den Einstellungen anmelden."
             self.presence_status_error = True
@@ -483,8 +501,10 @@ class FootballTasksApp:
 
         async def fetch():
             try:
-                present = await asyncio.to_thread(fetch_presence, credentials)
+                present, opponent, home_away = await asyncio.to_thread(fetch_presence_with_opponent, credentials)
                 self.presence = {" ".join(name.split()).casefold() for name in present}
+                self.presence_opponent = opponent
+                self.presence_home_away = home_away
                 self.presence_loaded = True
                 self.manual_presence_selection = None
                 mapped = sum(
@@ -494,6 +514,9 @@ class FootballTasksApp:
                 )
                 self.presence_status = (
                     f"Login erfolgreich. {len(present)} Zusagen geladen; {mapped} Kaderspieler zugeordnet."
+                    + (f" Gegner: {opponent}" if opponent else "")
+                    + (f" ({home_away})" if home_away else "")
+                    + ("." if opponent or home_away else "")
                 )
                 self.presence_status_error = False
                 self.message(self.presence_status)
@@ -501,6 +524,8 @@ class FootballTasksApp:
             except Exception as error:
                 self.log(f"SpielerPlus-Import fehlgeschlagen: {error}")
                 self.presence_loaded = False
+                self.presence_opponent = None
+                self.presence_home_away = None
                 self.presence_status = f"SpielerPlus-Import fehlgeschlagen: {error}"
                 self.presence_status_error = True
                 self.message(self.presence_status, error=True)

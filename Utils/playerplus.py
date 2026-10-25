@@ -6,7 +6,13 @@ import re
 
 
 def fetch_presence(credentials: dict) -> set[str]:
-    """Meldet sich an SpielerPlus an und liest die Zusagen für das nächste Spiel."""
+    """Kompatibilitätsfunktion: liest die Zusagen für das nächste Spiel."""
+    present, _, _ = fetch_presence_with_opponent(credentials)
+    return present
+
+
+def fetch_presence_with_opponent(credentials: dict) -> tuple[set[str], str | None, str | None]:
+    """Liest Zusagen, Gegner und Heim-/Auswärtsstatus des nächsten Spiels."""
     import requests
     from bs4 import BeautifulSoup
 
@@ -25,6 +31,16 @@ def fetch_presence(credentials: dict) -> set[str]:
         event_match = re.search(r"event-game-(\d+)", event.get("id", "")) if event else None
         if not event_match:
             raise ValueError("SpielerPlus zeigt derzeit kein kommendes Spiel an.")
+        opponent_label = event.select_one(".panel-heading-text .panel-subtitle")
+        opponent = opponent_label.get_text(" ", strip=True) if opponent_label else None
+        heading = event.select_one(".panel-heading-text .panel-title")
+        heading_text = heading.get_text(" ", strip=True).casefold() if heading else ""
+        if "auswärt" in heading_text or "auswaert" in heading_text:
+            home_away = "auswärts"
+        elif "heim" in heading_text:
+            home_away = "heim"
+        else:
+            home_away = None
         response = session.post(
             "https://www.spielerplus.de/events/ajax-participations",
             headers=headers,
@@ -34,12 +50,13 @@ def fetch_presence(credentials: dict) -> set[str]:
         response.raise_for_status()
         html = response.json().get("html", "")
         soup = BeautifulSoup(html, "html.parser")
-        return {
+        present = {
             label.get_text(strip=True)
             for item in soup.select("div.list-item")
             if item.find("i", class_="fa-thumbs-up")
             if (label := item.find("div", class_="list-label"))
         }
+        return present, opponent or None, home_away
 
 
 def _playerplus_login(session, credentials: dict, headers: dict):

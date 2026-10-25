@@ -176,6 +176,8 @@ class SettingsScreen:
             self.app.message(f"Import konnte nicht gespeichert werden: {error}", error=True)
             return
         self.app.presence = set()
+        self.app.presence_opponent = None
+        self.app.presence_home_away = None
         self.app.presence_loaded = False
         self.app.presence_attempted = False
         self.app.manual_presence_selection = None
