@@ -30,6 +30,51 @@ def create_pdf(assignment: dict[str, list[str]], players: list[Player], opponent
     return output.getvalue()
 
 
+def save_pdf_to_downloads(pdf_bytes: bytes, filename: str) -> str | None:
+    """Speichert unter Android 10+ ohne Dateisystemberechtigung in Downloads."""
+    from jnius import autoclass, jarray, cast
+
+    BuildVersion = autoclass("android.os.Build$VERSION")
+    if BuildVersion.SDK_INT < 29:
+        return None
+
+    activity_class = autoclass("com.flet.serious_python_android.PythonActivity")
+    activity = cast("android.app.Activity", activity_class.mActivity)
+    if activity is None:
+        raise RuntimeError("Die Android Activity ist nicht verfügbar.")
+
+    MediaStoreDownloads = autoclass("android.provider.MediaStore$Downloads")
+    ContentValues = autoclass("android.content.ContentValues")
+    resolver = activity.getContentResolver()
+    values = ContentValues()
+    values.put("_display_name", filename)
+    values.put("mime_type", "application/pdf")
+    values.put("relative_path", "Download/FootballTasker")
+    values.put("is_pending", 1)
+    uri = resolver.insert(MediaStoreDownloads.EXTERNAL_CONTENT_URI, values)
+    if uri is None:
+        raise RuntimeError("Android konnte keinen Eintrag im Download-Ordner anlegen.")
+
+    try:
+        stream = resolver.openOutputStream(uri)
+        if stream is None:
+            raise RuntimeError("Android konnte die PDF-Datei nicht öffnen.")
+        try:
+            data = jarray("b", [byte if byte < 128 else byte - 256 for byte in pdf_bytes])
+            stream.write(data)
+            stream.flush()
+        finally:
+            stream.close()
+
+        completed = ContentValues()
+        completed.put("is_pending", 0)
+        resolver.update(uri, completed, None, None)
+        return str(uri.toString())
+    except Exception:
+        resolver.delete(uri, None, None)
+        raise
+
+
 def _table_image(assignment: dict[str, list[str]], opponent: str, plt) -> io.BytesIO:
     rows = [[name, ", ".join(map(str, names)) if names else "-"] for name, names in assignment.items()]
     fig, axis = plt.subplots(figsize=(5, len(rows) * 0.5 + 1))

@@ -20,9 +20,10 @@ from Screens.settings import SettingsScreen
 from Screens.tasks import TasksScreen
 from Models.models import Player, Preset, Task
 from Utils.data_store import DataStore
-from Utils.pdf_export import create_pdf
+from Utils.pdf_export import create_pdf, save_pdf_to_downloads
 from Utils.playerplus import fetch_presence, test_playerplus_login
 from Utils.task_distribution import distribute_tasks
+from Utils.updater import is_android_runtime
 
 
 class FootballTasksApp:
@@ -178,9 +179,12 @@ class FootballTasksApp:
             stream.write(f"{datetime.now().isoformat(timespec='seconds')} {message}\n")
 
     def message(self, text: str, error: bool = False):
-        self.page.snack_bar = ft.SnackBar(ft.Text(text), bgcolor=ft.Colors.RED_700 if error else None)
-        self.page.snack_bar.open = True
-        self.page.update()
+        self.page.show_dialog(ft.SnackBar(
+            ft.Text(text),
+            bgcolor=ft.Colors.RED_700 if error else None,
+            duration=3000,
+            behavior=ft.SnackBarBehavior.FLOATING,
+        ))
 
     def save_data(self):
         self.store.save_data(self.players, self.tasks, self.presets, self.groups)
@@ -385,13 +389,28 @@ class FootballTasksApp:
                 return
 
             async def save_file():
-                await self.file_picker.save_file(
-                    dialog_title="PDF speichern",
-                    file_name=f"{name}.pdf",
-                    file_type=ft.FilePickerFileType.CUSTOM,
-                    allowed_extensions=["pdf"],
-                    src_bytes=pdf_bytes,
-                )
+                try:
+                    if is_android_runtime():
+                        try:
+                            uri = save_pdf_to_downloads(pdf_bytes, f"{name}.pdf")
+                            if uri:
+                                self.message("PDF in Downloads/FootballTasker gespeichert.")
+                                return
+                        except Exception as error:
+                            self.log(f"Android-Download fehlgeschlagen; Dateiauswahl wird verwendet: {error}")
+                    path = await self.file_picker.save_file(
+                        dialog_title="PDF speichern",
+                        file_name=f"{name}.pdf",
+                        file_type=ft.FilePickerFileType.CUSTOM,
+                        allowed_extensions=["pdf"],
+                        src_bytes=pdf_bytes,
+                    )
+                    if path:
+                        self.message("PDF erfolgreich gespeichert.")
+                except Exception as error:
+                    self.log(f"PDF-Export fehlgeschlagen: {error}")
+                    self.message(f"PDF-Export fehlgeschlagen: {error}", error=True)
+
             self.page.run_task(save_file)
 
         self.editor_dialog("PDF vorbereiten", [opponent, filename], create)
@@ -408,6 +427,7 @@ class FootballTasksApp:
             credentials = {"email": email.value.strip(), "password": password.value}
             self.presence_status = "SpielerPlus-Login wird geprüft …"
             self.presence_status_error = False
+            self.message("SpielerPlus-Login wird geprüft …")
             self.render()
 
             async def check():

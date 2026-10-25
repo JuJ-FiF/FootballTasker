@@ -17,9 +17,11 @@ flet run main.py
 - **Spieler:** Name, Rückennummer, SpielerPlus-Name, optionale Gruppe und Teilnahme an Aufgabenverteilungen pflegen.
 - **Aufgaben:** Aufgabenname, Mindest- und Maximalzahl sowie Priorität bearbeiten.
 - **Presets:** Aufgaben zu wiederverwendbaren Sätzen bündeln.
-- **Einstellungen:** Startbereich auswählen und SpielerPlus-Zugangsdaten testen und verschlüsselt speichern.
+- **Einstellungen:** Startbereich auswählen, SpielerPlus-Zugangsdaten testen und verschlüsselt speichern, Updates prüfen und Teamdaten importieren/exportieren.
 
 Die Daten aus `TasksApp/data.json` wurden als Ausgangsdaten übernommen. Die alten Gruppen bleiben beim Speichern erhalten; die hier nicht angefragten Gruppenverteilungs-Bildschirme wurden nicht übernommen.
+
+Teamdaten lassen sich in den Einstellungen als JSON-Datei exportieren und wieder importieren. Der Import ersetzt nach Bestätigung Spieler, Aufgaben, Presets und Gruppen. SpielerPlus-Zugangsdaten und lokale Einstellungen sind nicht enthalten. `data.json` und Sicherungskopien werden nicht in die APK aufgenommen; auf einem neuen Gerät können die Teamdaten über den Import geladen werden. Android-PDFs werden nach Möglichkeit ohne zusätzliche Berechtigung in `Downloads/FootballTasker` gespeichert.
 
 ## Datensicherung
 
