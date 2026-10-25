@@ -35,7 +35,11 @@ def is_newer_version(current_version: str, latest_version: str) -> bool:
 
 
 def is_android_runtime() -> bool:
-    return sys.platform == "android" or "ANDROID_ARGUMENT" in os.environ
+    return (
+        os.environ.get("FLET_PLATFORM", "").casefold() == "android"
+        or sys.platform == "android"
+        or "ANDROID_ARGUMENT" in os.environ
+    )
 
 
 async def check_for_update() -> dict | None:

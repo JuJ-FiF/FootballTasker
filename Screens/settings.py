@@ -6,13 +6,18 @@ import flet as ft
 from .common import page_heading
 from .registry import SCREEN_DEFINITIONS
 from Utils.data_transfer import build_import_data, create_export_data
-from Utils.updater import check_for_update, download_and_install_update, is_android_runtime
+from Utils.updater import check_for_update, download_and_install_update
 from Utils.version import APP_VERSION
 
 
 class SettingsScreen:
     def __init__(self, app):
         self.app = app
+        self.update_status = ft.Container(
+            visible=False,
+            bgcolor=ft.Colors.GREEN,
+            padding=ft.Padding(left=16, right=16, top=10, bottom=10),
+        )
 
     def build(self):
         selected = self.app.settings["start_tab"]["selected"]
@@ -102,7 +107,7 @@ class SettingsScreen:
             ),
         )
         return ft.Column(
-            [page_heading("Einstellungen", "App-Start, SpielerPlus, Updates und Datensicherung einrichten."), general, login, updater, data_transfer],
+            [page_heading("Einstellungen", "App-Start, SpielerPlus, Updates und Datensicherung einrichten."), self.update_status, general, login, updater, data_transfer],
             expand=True, spacing=20, scroll=ft.ScrollMode.AUTO,
         )
 
@@ -202,41 +207,64 @@ class SettingsScreen:
                 button.update()
 
     def show_update_dialog(self, update: dict):
-        android = is_android_runtime()
-        content = [ft.Text(update["changelog"], selectable=True)]
-        if not android:
-            content.append(ft.Text(
-                "Die APK-Installation ist nur in der Android-App verfügbar.",
-                color=ft.Colors.ON_SURFACE_VARIANT,
-            ))
-        actions = [ft.TextButton("Später", on_click=lambda _: self.app.close_dialog())]
-        if android:
-            async def install_update(_):
-                await self.download_update(update["download_url"])
+        async def install_update(_):
+            await self.download_update(update["download_url"])
 
-            actions.append(ft.FilledButton(
-                "Update installieren",
-                icon=ft.Icons.SYSTEM_UPDATE,
-                on_click=install_update,
-            ))
         self.app.page.show_dialog(ft.AlertDialog(
             modal=True,
             title=ft.Text(f"Update verfügbar: {update['version']}"),
-            content=ft.Column(content, tight=True, scroll=ft.ScrollMode.AUTO),
-            actions=actions,
+            content=ft.Column(
+                [ft.Text(update["changelog"] or "Keine Änderungen angegeben.", selectable=True)],
+                tight=True,
+                scroll=ft.ScrollMode.AUTO,
+            ),
+            actions=[
+                ft.TextButton("Später", on_click=lambda _: self.app.close_dialog()),
+                ft.FilledButton(
+                    "Update installieren",
+                    icon=ft.Icons.SYSTEM_UPDATE,
+                    on_click=install_update,
+                ),
+            ],
+        ))
+
+    def _set_update_status(self, message: str, icon):
+        self.update_status.content = ft.Row([
+            ft.Icon(icon, color=ft.Colors.WHITE),
+            ft.Text(message, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD),
+        ], spacing=10)
+        self.update_status.visible = True
+        self.update_status.update()
+
+    def _hide_update_status(self):
+        self.update_status.visible = False
+        self.update_status.update()
+
+    def _show_update_message(self, title: str, message: str):
+        self.app.page.show_dialog(ft.AlertDialog(
+            modal=True,
+            title=ft.Text(title),
+            content=ft.Text(message, selectable=True),
+            actions=[ft.TextButton("OK", on_click=lambda _: self.app.close_dialog())],
         ))
 
     async def download_update(self, download_url: str):
         self.app.close_dialog()
-        self.app.message("Update wird vorbereitet …")
+        self._set_update_status("Update wird vorbereitet …", ft.Icons.CHECK_CIRCLE)
         try:
             apk_path = await download_and_install_update(download_url)
             if apk_path is None:
-                self.app.message(
-                    "Android hat die Berechtigungseinstellungen geöffnet. Erlaube dort die Installation und starte das Update erneut."
+                self._hide_update_status()
+                self._show_update_message(
+                    "Installation erlauben",
+                    "Android hat die Einstellung für diese Quelle geöffnet. Erlaube dort die Installation unbekannter Apps und starte das Update anschließend erneut. Die APK wurde noch nicht heruntergeladen.",
                 )
                 return
-            self.app.message("APK geladen. Bitte die Installation im Android-Dialog bestätigen.")
+            self._set_update_status("Update wird installiert …", ft.Icons.SYSTEM_UPDATE)
         except Exception as error:
             self.app.log(f"Android-Update fehlgeschlagen: {error}")
-            self.app.message(f"Update fehlgeschlagen: {error}", error=True)
+            self._hide_update_status()
+            self._show_update_message(
+                "Update fehlgeschlagen",
+                f"Das Update konnte nicht gestartet werden.\n\nFehler:\n{error}",
+            )

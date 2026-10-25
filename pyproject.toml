@@ -33,6 +33,9 @@ exclude = [
     "BACKUP",
 ]
 
+[tool.flet.android]
+extract_packages = ["matplotlib"]
+
 [tool.flet.android.permissions]
 "android.permission.INTERNET" = true
 "android.permission.REQUEST_INSTALL_PACKAGES" = true
