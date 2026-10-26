@@ -45,6 +45,6 @@ data.json.bak
 .data.json.*.tmp
 settings.json
 settings.json.bak
-credentialls.bin
-credentialls.bin.bak
+credentials.bin
+credentials.bin.bak
 secret.key

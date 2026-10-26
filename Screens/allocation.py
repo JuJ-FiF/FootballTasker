@@ -65,9 +65,13 @@ class AllocationScreen:
                     height=56,
                     padding=ft.Padding.symmetric(horizontal=14, vertical=2),
                     content=ft.Row(
-                        [ft.Text(control.data.name, expand=True), control],
+                        [
+                            ft.Icon(ft.Icons.PEOPLE_OUTLINE, color=ft.Colors.PRIMARY),
+                            ft.Text(control.data.name, expand=True),
+                            control,
+                        ],
                         vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                        spacing=12,
+                        spacing=10,
                     ),
                 ),
             )

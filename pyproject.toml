@@ -1,6 +1,6 @@
 [project]
 name = "footballtasker"
-version = "1.0.3"
+version = "1.0.4"
 description = "Aufgabenverwaltung für Fussball-Teams"
 requires-python = ">=3.11,<3.13"
 dependencies = [

@@ -1,12 +1,18 @@
 """App- und SpielerPlus-Einstellungen."""
 
+import asyncio
 import json
 
 import flet as ft
 from .common import page_heading
 from .registry import SCREEN_DEFINITIONS
 from Utils.data_transfer import build_import_data, create_export_data
-from Utils.updater import check_for_update, download_and_install_update
+from Utils.updater import (
+    check_for_update,
+    download_apk,
+    request_install_permission,
+    start_android_update,
+)
 from Utils.version import APP_VERSION
 
 
@@ -93,7 +99,7 @@ class SettingsScreen:
                 content=ft.Column([
                     ft.Row([
                         ft.Icon(ft.Icons.SWAP_HORIZ, color=ft.Colors.PRIMARY),
-                        ft.Text("Daten sichern", size=18, weight=ft.FontWeight.W_600),
+                        ft.Text("Datenverwaltung", size=18, weight=ft.FontWeight.W_600),
                     ], spacing=10),
                     ft.Text(
                         "Spieler, Aufgaben, Presets und Gruppen als JSON sichern oder aus einem Export wiederherstellen. Zugangsdaten und Einstellungen werden nicht exportiert.",
@@ -107,7 +113,14 @@ class SettingsScreen:
             ),
         )
         return ft.Column(
-            [page_heading("Einstellungen", "App-Start, SpielerPlus, Updates und Datensicherung einrichten."), self.update_status, general, login, updater, data_transfer],
+            [
+                page_heading("Einstellungen", "App-Verhalten, Daten, SpielerPlus und Updates verwalten."),
+                self.update_status,
+                general,
+                data_transfer,
+                login,
+                updater,
+            ],
             expand=True, spacing=20, scroll=ft.ScrollMode.AUTO,
         )
 
@@ -230,9 +243,14 @@ class SettingsScreen:
             ],
         ))
 
-    def _set_update_status(self, message: str, icon):
+    def _set_update_status(self, message: str, icon=None):
+        indicator = (
+            ft.Icon(icon, color=ft.Colors.WHITE)
+            if icon
+            else ft.ProgressRing(width=20, height=20, stroke_width=2, color=ft.Colors.WHITE)
+        )
         self.update_status.content = ft.Row([
-            ft.Icon(icon, color=ft.Colors.WHITE),
+            indicator,
             ft.Text(message, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD),
         ], spacing=10)
         self.update_status.visible = True
@@ -252,17 +270,26 @@ class SettingsScreen:
 
     async def download_update(self, download_url: str):
         self.app.close_dialog()
-        self._set_update_status("Update wird vorbereitet …", ft.Icons.CHECK_CIRCLE)
+        self._set_update_status("Installationsberechtigung wird geprüft …")
         try:
-            apk_path = await download_and_install_update(download_url)
-            if apk_path is None:
+            can_install = await asyncio.to_thread(request_install_permission)
+            if not can_install:
                 self._hide_update_status()
                 self._show_update_message(
                     "Installation erlauben",
                     "Android hat die Einstellung für diese Quelle geöffnet. Erlaube dort die Installation unbekannter Apps und starte das Update anschließend erneut. Die APK wurde noch nicht heruntergeladen.",
                 )
                 return
-            self._set_update_status("Update wird installiert …", ft.Icons.SYSTEM_UPDATE)
+
+            self._set_update_status("Update wird heruntergeladen …")
+            apk_path = await asyncio.to_thread(download_apk, download_url)
+
+            self._set_update_status("Installationsdialog wird geöffnet …")
+            await asyncio.to_thread(start_android_update, apk_path)
+            self._set_update_status(
+                "Bitte das Update im Android-Installationsdialog bestätigen.",
+                ft.Icons.SYSTEM_UPDATE,
+            )
         except Exception as error:
             self.app.log(f"Android-Update fehlgeschlagen: {error}")
             self._hide_update_status()
