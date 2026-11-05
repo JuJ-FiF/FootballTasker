@@ -1,6 +1,6 @@
 [project]
 name = "footballtasker"
-version = "1.0.5"
+version = "1.0.6"
 description = "Aufgabenverwaltung für Fussball-Teams"
 requires-python = ">=3.11,<3.13"
 dependencies = [
@@ -17,20 +17,20 @@ dependencies = [
 org = "de.footballtasker"
 product = "FootballTasker"
 company = "JuJ-FiF"
-copyright = "Copyright © 2026"
+copyright = "Copyright © 2026 JuJ-FiF"
 permissions = ["internet"]
 
 [tool.flet.app]
 exclude = [
     "data.json",
     "data.json.bak",
+    "settings.json",
     "settings.json.bak",
     "secret.key",
     "secret.key.bak",
     "credentials.bin",
     "credentials.bin.bak",
     "logs",
-    "BACKUP",
 ]
 
 [tool.flet.android]
