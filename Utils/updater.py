@@ -92,7 +92,7 @@ def download_apk(download_url: str) -> Path:
     """Lädt eine APK in eine temporäre Datei und ersetzt erst danach die alte."""
     path = get_update_file_path()
     request = Request(download_url, headers={"User-Agent": USER_AGENT, "Accept": "application/octet-stream"})
-    descriptor, temporary = tempfile.mkstemp(prefix="footballtasker-update-", suffix=".apk", dir=path.parent)
+    descriptor, temporary = tempfile.mkstemp(prefix="FootballTasker-update-", suffix=".apk", dir=path.parent)
     try:
         with os.fdopen(descriptor, "wb") as output, urlopen(request, timeout=120) as response:
             while chunk := response.read(1024 * 1024):
@@ -107,6 +107,23 @@ def download_apk(download_url: str) -> Path:
             pass
         raise
     return path
+
+
+def open_security_settings() -> None:
+    """Öffnet Androids Sicherheitsbereich, z. B. für Samsungs Automatische Sperre."""
+    from jnius import autoclass, cast
+
+    activity_class = autoclass("com.flet.serious_python_android.PythonActivity")
+    activity = cast("android.app.Activity", activity_class.mActivity)
+    if activity is None:
+        raise RuntimeError("Die Android Activity ist nicht verfügbar.")
+
+    Intent = autoclass("android.content.Intent")
+    Settings = autoclass("android.provider.Settings")
+    try:
+        activity.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
+    except Exception:
+        activity.startActivity(Intent(Settings.ACTION_SETTINGS))
 
 
 def request_install_permission() -> bool:

@@ -7,6 +7,7 @@ import json
 import os
 import shutil
 import re
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -94,6 +95,12 @@ class FootballTasksApp:
         self.page.theme = ft.Theme(color_scheme_seed=ft.Colors.AMBER)
         self.page.dark_theme = ft.Theme(color_scheme_seed=ft.Colors.AMBER)
         self.page.padding = 0
+        self.update_status_banner = ft.Container(
+            visible=False,
+            bgcolor=ft.Colors.GREEN,
+            margin=ft.Margin.only(bottom=14),
+            padding=ft.Padding(left=16, right=16, top=10, bottom=10),
+        )
         self.file_picker = ft.FilePicker()
         self.page.services.append(self.file_picker)
         self.wide_layout = (self.page.width or 0) >= 720
@@ -125,7 +132,13 @@ class FootballTasksApp:
             destinations=[ft.NavigationRailDestination(icon=icon, label=label) for _, label, icon in SCREEN_DEFINITIONS],
         )
         self.body = ft.Container(expand=True)
-        self.page.add(self.body)
+        self.page_content = ft.Column(
+            controls=[self.update_status_banner, self.body],
+            expand=True,
+            spacing=0,
+            horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+        )
+        self.page.add(self.page_content)
         self.page.on_resize = self.on_page_resize
         self.render()
 

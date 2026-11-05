@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import sys
 
 import flet as ft
 from .common import page_heading
@@ -10,6 +11,7 @@ from Utils.data_transfer import build_import_data, create_export_data
 from Utils.updater import (
     check_for_update,
     download_apk,
+    open_security_settings as open_android_security_settings,
     request_install_permission,
     start_android_update,
 )
@@ -19,11 +21,7 @@ from Utils.version import APP_VERSION
 class SettingsScreen:
     def __init__(self, app):
         self.app = app
-        self.update_status = ft.Container(
-            visible=False,
-            bgcolor=ft.Colors.GREEN,
-            padding=ft.Padding(left=16, right=16, top=10, bottom=10),
-        )
+        self.update_status = self.app.update_status_banner
 
     def build(self):
         selected = self.app.settings["start_tab"]["selected"]
@@ -115,7 +113,6 @@ class SettingsScreen:
         return ft.Column(
             [
                 page_heading("Einstellungen", "App-Verhalten, Daten, SpielerPlus und Updates verwalten."),
-                self.update_status,
                 general,
                 data_transfer,
                 login,
@@ -205,17 +202,28 @@ class SettingsScreen:
         if button:
             button.disabled = True
             button.update()
+        self._set_update_status("Suche nach Updates …")
         try:
-            self.app.message("Suche nach FootballTasker-Updates …")
             update = await check_for_update()
             if update is None:
-                self.app.message(f"FootballTasker ist aktuell (Version {APP_VERSION}).")
+                if sys.platform == "win32":
+                    await self.simulate_update_process()
+                else:
+                    self._hide_update_status()
+                    self._show_update_message(
+                        "Keine Updates",
+                        f"Du verwendest bereits die aktuelle Version {APP_VERSION}.",
+                    )
                 return
-            self.app.message(f"Update verfügbar: Version {update['version']}.")
+            self._hide_update_status()
             self.show_update_dialog(update)
         except Exception as error:
             self.app.log(f"Updateprüfung fehlgeschlagen: {error}")
-            self.app.message(f"Updateprüfung fehlgeschlagen: {error}", error=True)
+            self._hide_update_status()
+            self._show_update_message(
+                "Updateprüfung fehlgeschlagen",
+                f"Die Suche nach Updates konnte nicht durchgeführt werden.\n\nFehler:\n{error}",
+            )
         finally:
             if button:
                 button.disabled = False
@@ -260,6 +268,22 @@ class SettingsScreen:
         self.update_status.visible = False
         self.update_status.update()
 
+    async def simulate_update_process(self):
+        steps = [
+            ("Updatevorgang wird unter Windows simuliert …", None),
+            ("Download wird simuliert …", None),
+            ("Installationsdialog wird simuliert …", ft.Icons.SYSTEM_UPDATE),
+        ]
+        for message, icon in steps:
+            self._set_update_status(message, icon)
+            await asyncio.sleep(0.7)
+        self._set_update_status(
+            f"Simulation abgeschlossen · Version {APP_VERSION} bleibt installiert.",
+            ft.Icons.CHECK_CIRCLE,
+        )
+        await asyncio.sleep(2)
+        self._hide_update_status()
+
     def _show_update_message(self, title: str, message: str):
         self.app.page.show_dialog(ft.AlertDialog(
             modal=True,
@@ -268,10 +292,64 @@ class SettingsScreen:
             actions=[ft.TextButton("OK", on_click=lambda _: self.app.close_dialog())],
         ))
 
-    async def download_update(self, download_url: str):
-        self.app.close_dialog()
-        self._set_update_status("Installationsberechtigung wird geprüft …")
+    def show_update_safety_dialog(self, download_url: str):
+        async def open_settings(_):
+            try:
+                await asyncio.to_thread(open_android_security_settings)
+            except Exception as error:
+                self.app.message(
+                    f"Sicherheitseinstellungen konnten nicht geöffnet werden: {error}",
+                    error=True,
+                )
+
+        async def continue_update(_):
+            self.app.close_dialog()
+            await self.download_update(download_url, safety_confirmed=True)
+
+        self.app.page.show_dialog(ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Sicherheitseinstellung prüfen"),
+            content=ft.Column(
+                [
+                    ft.Text(
+                        "Auf Samsung Galaxy kann die Automatische Sperre die "
+                        "Installation dieses Updates blockieren. Falls nötig, "
+                        "öffne Sicherheit und Datenschutz → Automatische Sperre "
+                        "und deaktiviere sie vorübergehend. Aktiviere sie nach "
+                        "dem Update wieder."
+                    ),
+                    ft.OutlinedButton(
+                        "Sicherheitseinstellungen öffnen",
+                        icon=ft.Icons.SECURITY,
+                        on_click=open_settings,
+                    ),
+                ],
+                tight=True,
+                spacing=14,
+            ),
+            actions=[
+                ft.TextButton("Abbrechen", on_click=lambda _: self.app.close_dialog()),
+                ft.FilledButton(
+                    "Weiter",
+                    icon=ft.Icons.ARROW_FORWARD,
+                    on_click=continue_update,
+                ),
+            ],
+        ))
+
+    async def download_update(self, download_url: str, safety_confirmed: bool = False):
         try:
+            if sys.platform == "win32":
+                self.app.close_dialog()
+                await self.simulate_update_process()
+                return
+
+            if not safety_confirmed:
+                self.app.close_dialog()
+                self.show_update_safety_dialog(download_url)
+                return
+
+            self._set_update_status("Installationsberechtigung wird geprüft …")
             can_install = await asyncio.to_thread(request_install_permission)
             if not can_install:
                 self._hide_update_status()
