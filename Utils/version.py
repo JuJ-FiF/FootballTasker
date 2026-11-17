@@ -1,1 +1,1 @@
-﻿APP_VERSION = "1.0.7-Hotfix#1"
+﻿APP_VERSION = "1.0.7-Hotfix#2"
